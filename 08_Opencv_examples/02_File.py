@@ -1,0 +1,85 @@
+"""
+ * Requirements
+
+pip install PyQt5
+pip install opencv-python
+
+"""
+
+import sys
+
+import cv2
+import numpy as np
+from PyQt5 import QtGui
+from PyQt5 import uic
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileSystemModel
+
+form_class = uic.loadUiType('file_window.ui')[0]
+class MainWindow(QMainWindow, form_class):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+
+        self.image = None
+        self.set_tree_view() # 트리뷰에서 했던 구조
+        self.set_radio_button()
+
+
+    def set_tree_view(self):
+        self.root_path = '../' #루트패스설정정
+
+        self.file_system_model = QFileSystemModel()
+        self.tree_view.setModel(self.file_system_model)
+        self.file_system_model.setRootPath(self.root_path)
+        self.tree_view.setRootIndex(self.file_system_model.index(self.root_path))
+        self.tree_view.setColumnWidth(0, 200)
+
+        self.tree_view.setColumnHidden(1, True)
+        self.tree_view.setColumnHidden(2, True)
+        self.tree_view.setColumnHidden(3, True)
+
+        self.tree_view.doubleClicked.connect(self.tree_view_double_clicked)
+
+    def tree_view_double_clicked(self, index):
+        # index 폴더를 확인,,? 폴더인경우와 폴더가 아닌경우
+        if self.file_system_model.isDir(index):
+            # print('Directory')
+            pass
+        else:
+            # 폴더가 아닌경우 즉, 이미지나 파이썬파일이나 이런거,,,  >> 예외처리는 안되어있음 나중에 해야할것
+            path = self.file_system_model.filePath(index)
+            self.image = cv2.imread(path) # 여기선느 이미지파일이라는 가정을 가지고있음. 그래서 이미지파일을 가져오게끔끔            self.image_processing()
+
+    def set_radio_button(self):
+        self.radio_rgb.clicked.connect(self.image_processing)
+        self.radio_gray.clicked.connect(self.image_processing)
+        self.radio_bin.clicked.connect(self.image_processing)
+
+    def image_processing(self):
+        if self.image is None:
+            return
+        # 라디오버튼이 체크되어있는지 확인해서 체크된 버튼이 무엇이냐에따라서 다른 설정을 해줌.
+        if self.radio_rgb.isChecked():
+            processed = self.image
+        elif self.radio_gray.isChecked():
+            processed = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+            processed = (gray > 128).astype(np.uint8) * 255
+        # 처리가 끝난 이미지를 띄워줘야함. 차원이 2이면 그레이 3이면 컬러이미지
+        if len(processed.shape) == 2:
+            show_image = QtGui.QImage(processed, processed.shape[1], processed.shape[0], processed.shape[1],
+                                      QtGui.QImage.Format_Grayscale8)
+        else:
+            show_image = QtGui.QImage(processed, processed.shape[1], processed.shape[0], processed.shape[1] * 3,
+                                      QtGui.QImage.Format_BGR888)
+        self.label_image.setPixmap(QtGui.QPixmap(show_image))
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+
+    window = MainWindow()
+    window.show()
+
+    app.exec_()
